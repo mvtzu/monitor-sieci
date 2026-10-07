@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Dashboard</h2>
+<p>Witaj w monitorze sieci!</p>
+
+<button onclick="scanNetwork()">Skanuj teraz</button>
+
+<h3>Urządzenia w sieci:</h3>
+<div id="devices">
+    {% for device in devices %}
+    <div class="device">
+        <strong>{{ device.ip_address }}</strong> -
+        {{ device.mac_address }} -
+        {{ device.hostname if device.hostname else "Unknown" }} -
+        {{ device.vendor if device.vendor else "Unknown" }} -
+        <span class="status {% if device.is_online %}online{% else %}offline{% endif %}">
+            {% if device.is_online %}Aktywny{% else %}Nieaktywny{% endif %}
+        </span>
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+function scanNetwork() {
+    fetch('/api/scan', { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            console.log("Scan completed:", data);
+            // Odśwież listę urządzeń
+            fetch('/api/devices')
+                .then(response => response.json())
+                .then(data => {
+                    const devicesDiv = document.getElementById('devices');
+                    if (data.devices && data.devices.length > 0) {
+                        devicesDiv.innerHTML = data.devices.map(d =>
+                            `<div class="device">
+                                <strong>${d.ip_address}</strong> -
+                                ${d.mac_address} -
+                                ${d.hostname || 'Unknown'} -
+                                ${d.vendor || 'Unknown'} -
+                                <span class="status ${d.is_online ? 'online' : 'offline'}">
+                                    ${d.is_online ? 'Aktywny' : 'Nieaktywny'}
+                                </span>
+                            </div>`
+                        ).join('');
+                    } else {
+                        devicesDiv.innerHTML = '<p>Brak urządzeń w sieci.</p>';
+                    }
+                });
+        })
+        .catch(error => console.error('Error:', error));
+}
+
+// Ładujemy urządzenia przy starcie
+document.addEventListener('DOMContentLoaded', function() {
+    fetch('/api/devices')
+        .then(response => response.json())
+        .then(data => {
+            const devicesDiv = document.getElementById('devices');
+            if (data.devices && data.devices.length > 0) {
+                devicesDiv.innerHTML = data.devices.map(d =>
+                    `<div class="device">
+                        <strong>${d.ip_address}</strong> -
+                        ${d.mac_address} -
+                        ${d.hostname || 'Unknown'} -
+                        ${d.vendor || 'Unknown'} -
+                        <span class="status ${d.is_online ? 'online' : 'offline'}">
+                            ${d.is_online ? 'Aktywny' : 'Nieaktywny'}
+                        </span>
+                    </div>`
+                ).join('');
+            } else {
+                devicesDiv.innerHTML = '<p>Brak urządzeń w sieci. Kliknij "Skanuj teraz".</p>';
+            }
+        });
+});
+</script>
+{% endblock %}

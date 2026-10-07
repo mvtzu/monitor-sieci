@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Monitor Sieci Domowej</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <h1>Monitor Sieci Domowej</h1>
+    <nav>
+        <a href="/">Dashboard</a> |
+        <a href="/devices">Urządzenia</a>
+    </nav>
+    <hr>
+    <div id="content">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>
