@@ -23,4 +23,5 @@ passlib[bcrypt]==1.7.4
 jinja2==3.1.3
 python-dotenv==1.0.0
 netifaces==0.11.0
+speedtest-cli>=2.1.3
 >>>>>>> f03f24f91d93894960a5c0cf84a19a331083b0ae

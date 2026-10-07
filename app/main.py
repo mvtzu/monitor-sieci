@@ -13,6 +13,9 @@ from app.models.database import Base, get_db, Device, Traffic, ScanHistory, Aler
 from app.auth import get_current_user, AuthHandler
 from app.network.scanner import scanner
 from app.network.traffic import TrafficMonitor
+from app.network.pinger import pinger
+from app.network.speedtest import speed_tester
+from app.models.database import PingResult, SpeedTest
 
 # === TWORZENIE TABLI W BAZIE DANYCH ===
 Base.metadata.create_all(bind=engine)
@@ -92,6 +95,66 @@ async def api_scan(db=Depends(get_db)):
 @app.get("/api/system/status")
 async def api_system_status():
     return JSONResponse(content={"status": "running", "timestamp": datetime.now(timezone.utc).isoformat()})
+
+@app.get("/stats", response_class=HTMLResponse)
+async def read_stats(request: Request, db=Depends(get_db)):
+    devices = db.query(Device).all()
+    return templates.TemplateResponse("stats.html", {"request": request, "devices": devices})
+
+@app.post("/api/ping/{device_id}")
+async def api_ping_device(device_id: int, db=Depends(get_db)):
+    device = db.query(Device).filter_by(id=device_id).first()
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+
+    ping_data = pinger.ping_device(device.ip_address)
+    new_ping = PingResult(
+        device_id=device_id,
+        packets_sent=ping_data["packets_sent"],
+        packets_received=ping_data["packets_received"],
+        packet_loss=ping_data["packet_loss"],
+        avg_response_time=ping_data["avg_response_time"]
+    )
+    db.add(new_ping)
+    db.commit()
+    return JSONResponse(content={"device_id": device_id, "ping_data": ping_data})
+
+@app.post("/api/speedtest")
+async def api_speedtest(db=Depends(get_db)):
+    test_data = speed_tester.run_test()
+    new_test = SpeedTest(
+        download_speed=test_data["download_speed"],
+        upload_speed=test_data["upload_speed"],
+        ping_latency=test_data["ping_latency"],
+        server_name=test_data["server_name"],
+        server_sponsor=test_data["server_sponsor"]
+    )
+    db.add(new_test)
+    db.commit()
+    return JSONResponse(content=test_data)
+
+@app.get("/api/stats/ping/{device_id}")
+async def api_ping_stats(device_id: int, db=Depends(get_db)):
+    results = db.query(PingResult).filter_by(device_id=device_id).order_by(PingResult.timestamp.desc()).limit(50).all()
+    return JSONResponse(content={
+        "results": [{
+            "timestamp": r.timestamp.isoformat(),
+            "packet_loss": r.packet_loss,
+            "avg_response_time": r.avg_response_time
+        } for r in results]
+    })
+
+@app.get("/api/stats/speedtest")
+async def api_speedtest_stats(db=Depends(get_db)):
+    results = db.query(SpeedTest).order_by(SpeedTest.timestamp.desc()).limit(50).all()
+    return JSONResponse(content={
+        "results": [{
+            "timestamp": r.timestamp.isoformat(),
+            "download": r.download_speed,
+            "upload": r.upload_speed,
+            "ping": r.ping_latency
+        } for r in results]
+    })
 
 if __name__ == "__main__":
     uvicorn.run(

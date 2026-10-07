@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Statystyki Sieci</h2>
+
+<div class="stats-container">
+    <div class="stats-box">
+        <h3>📊 Speed Test</h3>
+        <button onclick="runSpeedTest()">Uruchom Speed Test</button>
+        <div style="margin: 10px 0;">
+            <span id="speedResult"></span>
+        </div>
+        <canvas id="speedTestChart" width="600" height="300"></canvas>
+    </div>
+
+    <hr style="margin: 30px 0;">
+
+    <div class="stats-box">
+        <h3>🔄 Ping do urządzeń</h3>
+        <select id="deviceSelect" onchange="loadPingStats()">
+            {% for device in devices %}
+            <option value="{{ device.id }}">{{ device.ip_address }} ({{ device.hostname or 'Unknown' }})</option>
+            {% endfor %}
+        </select>
+        <button onclick="pingSelectedDevice()">Pinguj urządzenie</button>
+        <div style="margin: 10px 0;">
+            <span id="pingResult"></span>
+        </div>
+        <canvas id="pingChart" width="600" height="300"></canvas>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let speedTestChart, pingChart;
+
+// === SPEED TEST CHART ===
+function initSpeedTestChart() {
+    const ctx = document.getElementById('speedTestChart').getContext('2d');
+    speedTestChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: 'Download (Mbps)',
+                    data: [],
+                    borderColor: '#4bc0c0',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    tension: 0.1,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Upload (Mbps)',
+                    data: [],
+                    borderColor: '#ff6384',
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    tension: 0.1,
+                    yAxisID: 'y'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            scales: {
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: 'Prędkość (Mbps)'
+                    }
+                }
+            }
+        }
+    });
+}
+
+function loadSpeedTestStats() {
+    fetch('/api/stats/speedtest')
+        .then(r => r.json())
+        .then(data => {
+            if (data.results.length === 0) return;
+
+            const labels = data.results.map(r => new Date(r.timestamp).toLocaleString());
+            speedTestChart.data.labels = labels;
+            speedTestChart.data.datasets[0].data = data.results.map(r => r.download);
+            speedTestChart.data.datasets[1].data = data.results.map(r => r.upload);
+            speedTestChart.update();
+        });
+}
+
+function runSpeedTest() {
+    document.getElementById('speedResult').textContent = 'Trwa test...';
+    fetch('/api/speedtest', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('speedResult').textContent =
+                    `✅ Download: ${data.download_speed} Mbps | Upload: ${data.upload_speed} Mbps | Ping: ${data.ping_latency} ms`;
+            } else {
+                document.getElementById('speedResult').textContent =
+                    `❌ Błąd: ${data.error}`;
+            }
+            setTimeout(loadSpeedTestStats, 1000);
+        })
+        .catch(error => {
+            document.getElementById('speedResult').textContent = `❌ Błąd: ${error}`;
+        });
+}
+
+// === PING CHART ===
+function initPingChart() {
+    const ctx = document.getElementById('pingChart').getContext('2d');
+    pingChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: 'Packet Loss (%)',
+                    data: [],
+                    borderColor: '#ff6384',
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    tension: 0.1,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Avg Response Time (ms)',
+                    data: [],
+                    borderColor: '#4bc0c0',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    tension: 0.1,
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            scales: {
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: 'Strata pakietów (%)'
+                    },
+                    min: 0,
+                    max: 100
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: 'Czas odpowiedzi (ms)'
+                    },
+                    grid: {
+                        drawOnChartArea: false
+                    }
+                }
+            }
+        }
+    });
+}
+
+function loadPingStats() {
+    const deviceId = document.getElementById('deviceSelect').value;
+    fetch(`/api/stats/ping/${deviceId}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.results.length === 0) return;
+
+            const labels = data.results.map(r => new Date(r.timestamp).toLocaleString());
+            pingChart.data.labels = labels;
+            pingChart.data.datasets[0].data = data.results.map(r => r.packet_loss);
+            pingChart.data.datasets[1].data = data.results.map(r => r.avg_response_time);
+            pingChart.update();
+        });
+}
+
+function pingSelectedDevice() {
+    const deviceId = document.getElementById('deviceSelect').value;
+    document.getElementById('pingResult').textContent = 'Trwa pingowanie...';
+    fetch(`/api/ping/${deviceId}`, { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ping_data.success) {
+                const pingData = data.ping_data;
+                document.getElementById('pingResult').textContent =
+                    `✅ Packet Loss: ${pingData.packet_loss}% | Avg Time: ${pingData.avg_response_time} ms`;
+            } else {
+                document.getElementById('pingResult').textContent =
+                    `❌ Błąd: ${data.ping_data.error}`;
+            }
+            setTimeout(loadPingStats, 1000);
+        })
+        .catch(error => {
+            document.getElementById('pingResult').textContent = `❌ Błąd: ${error}`;
+        });
+}
+
+// === INIT ===
+document.addEventListener('DOMContentLoaded', function() {
+    initSpeedTestChart();
+    initPingChart();
+    loadSpeedTestStats();
+    if (document.getElementById('deviceSelect').options.length > 0) {
+        loadPingStats();
+    }
+});
+</script>
+{% endblock %}
