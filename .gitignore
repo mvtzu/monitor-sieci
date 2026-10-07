@@ -1,0 +1,21 @@
+﻿# Byte-compiled / optimized
+__pycache__/
+*.py[cod]
+*.class
+
+# Database
+*.db
+*.sqlite
+monitor.db
+
+# Virtual environment
+venv/
+.env
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
+*.log
+logs/

@@ -1,0 +1,28 @@
+﻿{
+    ""network"": {
+        ""subnet"": ""192.168.1.0/24"",
+        ""interface"": ""auto"",
+        ""scan_interval"": 300,
+        ""traffic_interval"": 60
+    },
+    ""auth"": {
+        ""users"": [
+            {
+                ""username"": ""admin"",
+                ""password_hash"": """"
+            }
+        ],
+        ""whitelist_ips"": [
+            ""127.0.0.1"",
+            ""192.168.1.100""
+        ]
+    },
+    ""database"": {
+        ""path"": ""monitor.db""
+    },
+    ""server"": {
+        ""host"": ""0.0.0.0"",
+        ""port"": 8000,
+        ""debug"": true
+    }
+}
